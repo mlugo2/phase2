@@ -6,14 +6,30 @@
 
 /* Prototypes for the functions */
 char * s_gets(char * st, int n);
-void split (char [], char [], char [], char [], char []);
 void clear(char[], int n);
 void authenticator(char [], char [], char []);
 void displayCommnads();
 void welcomeMessage();
+void parameterFix(char [], char [], char []);
 
 /* Directive functions */
 void assemble(char []);
+
+
+// Opcode Table
+typedef struct {
+        char name[6];
+        int code;
+} Optab;
+
+Optab opcodeTable [31] =
+{ {"ADD\0", 24}, {"AND\0", 88}, {"COMP\0", 40}, {"DIV\0", 36}, {"J\0", 60},
+  {"JEQ\0", 48}, {"JGT\0", 52}, {"JLT\0", 56}, {"JSUB\0", 72}, {"LDA\0", 0},
+  {"LDCH\0", 80}, {"LDL\0", 8}, {"LDX\0", 4}, {"MUL\0", 32}, {"OR\0", 68},
+  {"RD\0", 216}, {"RSUB\0", 76}, {"STA\0", 12}, {"STCH\0", 84}, {"STL\0", 20},
+  {"STX\0", 16}, {"SUB\0", 28}, {"TD\0", 224}, {"TIX\0", 44}, {"WD\0", 220},
+  {"START\0", 250}, {"END\0", 251}, {"BYTE\0", 252}, {"WORD\0", 253}, {"RESB\0", 254},
+  {"RESW\0", 255}};
 
 /********************************************************
 *               authenticator()                         *
@@ -75,8 +91,11 @@ void authenticator(char comm[], char p1[], char p2[])
                                 printf("Error: Parameter needed.\n");
                         else if(p2[0] != '\0')
                                 printf("Error: Second parameter not required.\n");
-                        else
+                        else{
                                assemble(p1);
+                               while ( getchar() != '\n' )
+                                        continue;
+                        }
                 }
         else if(!strcmp(comm,"directory"))
                 system("ls");
@@ -149,7 +168,6 @@ char * s_gets(char * st, int n)
 	}
 	return ret_val;
 }
-
 
 /********************************************************
 *                       split()                         *
@@ -293,7 +311,7 @@ void welcomeMessage()
 
         system("clear");
         printf("%s\n", asciipic_txt);
-        printf("Welcome to Sim OS 1.0\n");
+        printf("Welcome to Sim OS 2.0\n");
         printf("For supported commands type: help\n\n");
 
 } 
@@ -309,15 +327,13 @@ void assemble(char fileName [])
 	int c;
 
         // Variables for split
-        char label[50], instruction[50], operand[50], comment[50];
+        char p1[50], p2[50], p3[50];
         char * pch;
 
         // initialize
-        label[0], instruction[0], operand[0],comment[0] = '\0';
+        p1[0], p2[0], p3[0] = '\0';
 
 	// get file names from user
-	//printf("Enter name of file to be copied: ");
-	//scanf("%63s", inName);
 	printf("Enter name of output file: ");
 	scanf("%63s", outName);
 
@@ -326,8 +342,42 @@ void assemble(char fileName [])
 	if ( (in = fopen(fileName, "r")) == NULL  )
 	{
 		printf("Can't open %s for reading.\n", fileName);
-		//return 1;
+		return;
 	}
+        else {
+                
+                // Traverses any comments
+               while (fgets(line, sizeof(line), in) && line[0] == '.' )
+		        continue;
+
+                // The first line is a special case
+                printf("This is the first line of code: %s\n", line);
+                sscanf(line,"%s %s %s %*s", p1, p2, p3);
+                clear(p1, 50);
+                clear(p2, 50);
+                clear(p3, 50);
+
+             	while (fgets(line, sizeof(line), in) )
+	        {
+
+                        if(line[0] == '.')
+                                continue;
+
+		        printf("%s\n", line);
+
+                        sscanf(line,"%s %s %s %*s", p1, p2, p3);
+
+                        parameterFix(p1, p2, p3);
+
+                        printf("label: %s\n", p1);
+                        printf("instruction: %s\n", p2);
+                        printf("operand: %s\n", p3);
+
+                        clear(p1, 50);
+                        clear(p2, 50);
+                        clear(p3, 50);
+	        }   
+        }
 
 	if ( (out = fopen (outName, "w")) == NULL )
 	{
@@ -340,26 +390,39 @@ void assemble(char fileName [])
 	//while( (c = getc (in)) != EOF )
 	//	putc (c, out);
 
-	// Get line from file
-
-	while (fgets(line, sizeof(line), in) )
-	{
-		printf("%s", line);
-
-                split(line, label, instruction, operand, comment);
-
-                //sscanf(line,"%s %s %s %s %*s", label, instruction, operand, comment);
-
-                printf("label: %s\n", label);
-                printf("instruction: %s\n", instruction);
-                printf("operand: %s\n", operand);
-                printf("comment: %s\n", comment);
-	}
-
 	// Close open files
 	fclose(in);
 	fclose(out);
 
+
+}
+
+void parameterFix(char p1[], char p2[], char p3[])
+{
+        _Bool found = 0;
+        int i;
+
+        // Check to see if label is a mnemonic
+        for( i = 0; i < 30; i++)
+                if(strcmp(p1, opcodeTable[i].name) == 0)
+                {       
+                        found = 1;
+                        break;
+                }
+
+        // If label is a mnemonic place in correct parameter
+        if (found == 1)
+        {
+                clear(p3, 50);
+                strcpy(p3, p2);
+                clear(p2, 50);
+                strcpy(p2, p1);
+                clear(p1, 50);
+
+                // Special case for RSUB
+                if(strcmp(p2, "RSUB") == 0)
+                        clear(p3, 50);
+        }
 
 }
 
