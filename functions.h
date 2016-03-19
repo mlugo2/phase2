@@ -4,17 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Prototypes for the functions */
-char * s_gets(char * st, int n);
-void clear(char[], int n);
-void authenticator(char [], char [], char []);
-void displayCommnads();
-void welcomeMessage();
-void parameterFix(char [], char [], char []);
-
-/* Directive functions */
-void assemble(char []);
-
+// Symbol Table
+typedef struct {
+        char name[6];
+        int address;
+} Symtab;
+Symtab symbolTable[500];
 
 // Opcode Table
 typedef struct {
@@ -22,7 +17,7 @@ typedef struct {
         int code;
 } Optab;
 
-Optab opcodeTable [31] =
+Optab opcode [31] =
 { {"ADD\0", 24}, {"AND\0", 88}, {"COMP\0", 40}, {"DIV\0", 36}, {"J\0", 60},
   {"JEQ\0", 48}, {"JGT\0", 52}, {"JLT\0", 56}, {"JSUB\0", 72}, {"LDA\0", 0},
   {"LDCH\0", 80}, {"LDL\0", 8}, {"LDX\0", 4}, {"MUL\0", 32}, {"OR\0", 68},
@@ -30,6 +25,21 @@ Optab opcodeTable [31] =
   {"STX\0", 16}, {"SUB\0", 28}, {"TD\0", 224}, {"TIX\0", 44}, {"WD\0", 220},
   {"START\0", 250}, {"END\0", 251}, {"BYTE\0", 252}, {"WORD\0", 253}, {"RESB\0", 254},
   {"RESW\0", 255}};
+
+
+/* Prototypes for the functions */
+char * s_gets(char * st, int n);
+void clear(char[], int n);
+void authenticator(char [], char [], char []);
+void displayCommnads();
+void welcomeMessage();
+void parameterFix(char [], char [], char []);
+_Bool symtabSearch(char [], Symtab []);
+_Bool optabSearch(char [], int * );
+
+/* Directive functions */
+void assemble(char []);
+
 
 /********************************************************
 *               authenticator()                         *
@@ -324,73 +334,149 @@ void assemble(char fileName [])
 	char outName[64];
 	char line[256];
 	FILE *in, *out;
-	int c;
+        int locctr;
+        int error = 0;
+        int index, opIndex;
+		int intOperand = 0;	// Used when the operand is a number
 
         // Variables for split
-        char p1[50], p2[50], p3[50];
+        char label[50], instruction[50], operand[50];
         char * pch;
 
         // initialize
-        p1[0], p2[0], p3[0] = '\0';
+        label[0], instruction[0], operand[0] = '\0';
 
 	// get file names from user
-	printf("Enter name of output file: ");
-	scanf("%63s", outName);
+	strcpy(outName, "intermediate");
 
 	// open input and output files
+        out = fopen (outName, "w");
 
 	if ( (in = fopen(fileName, "r")) == NULL  )
 	{
 		printf("Can't open %s for reading.\n", fileName);
 		return;
 	}
-        else {
+    else {
                 
+                /************************************************
+                *                   PASS 1                      *
+                ************************************************/
+
                 // Traverses any comments
                while (fgets(line, sizeof(line), in) && line[0] == '.' )
 		        continue;
 
                 // The first line is a special case
                 printf("This is the first line of code: %s\n", line);
-                sscanf(line,"%s %s %s %*s", p1, p2, p3);
-                clear(p1, 50);
-                clear(p2, 50);
-                clear(p3, 50);
+                sscanf(line,"%s %s %s %*s", label, instruction, operand);
+                
+                if ( strcmp(instruction, "START") == 0)
+                {
+                        // Saving program name and starting address
+                        strcpy(symbolTable[500].name, label);
+                        sscanf(operand, "%d", &symbolTable[500].address);
 
-             	while (fgets(line, sizeof(line), in) )
+                        // Initialize LOCCTR to starting address
+                        sscanf(operand, "%x", &locctr);
+
+                        // Write line to intermediate file
+                        fprintf(out, "%s %s %s\n", label, instruction, operand);                        
+                }
+                else
+                {
+                        locctr = 0;
+                }
+                
+                // Read next line
+                fgets(line, sizeof(line), in);
+                
+                // Split read line
+                sscanf(line,"%s %s %s %*s", label, instruction, operand);
+                parameterFix(label, instruction, operand);
+
+                index = 0;
+             	while ( strcmp(instruction, "END") != 0 )
 	        {
 
-                        if(line[0] == '.')
-                                continue;
+                        // If line is not a comment
+                        if(line[0] != '.')
+                        {
+                                // Write line to intermediate file
+								fprintf(out, "%s %s %s\n", label, instruction, operand);
 
-		        printf("%s\n", line);
+                                // If there is a label in instructions
+                                if ( label[0] != '\0')
+                                {
+                                        // Search SYMTAB for lable
+                                        if(symtabSearch(label, symbolTable))
+                                                // set error flag
+                                                puts("Error1\n");
+                                        else
+                                        {
+                                                // Inserting label and locctr into SYMTAB
+                                                strcpy(symbolTable[index].name, label);
+                                                symbolTable[index].address = locctr;
+                                        }
+                                
+                                } // end if symbol
 
-                        sscanf(line,"%s %s %s %*s", p1, p2, p3);
+                                // Search for OPCODE in OPTAB
+                                if(optabSearch(instruction, &opIndex))
+                                {
+									fprintf(out, "%x\n", locctr);
+									locctr += 3;
+								}
+								else if( strcmp(instruction, "WORD") == 0)
+								{
+									fprintf(out, "%x\n", locctr);
+									locctr += 3;
+								}
+								else if ( strcmp(instruction, "RESW") == 0)
+								{
+									fprintf(out, "%x\n", locctr);
+									sscanf(operand, "%d", &intOperand);
+									locctr += 3*intOperand;
+								}
+								else if ( strcmp(instruction, "RESB") == 0)
+								{
+									fprintf(out, "%x\n", locctr);
+									sscanf(operand, "%d", &intOperand);
+									locctr += intOperand;
+								}
+								else if ( strcmp(instruction, "BYTE") == 0)
+									{
+										fprintf(out, "%x\n", locctr);
+										puts("Does something\n");
+											
+									}
+								else
+									printf("Error2 for instruction: %s\n", instruction);
+									
+                        } // end if not a comment
+				 
+				// Write to file
+                fprintf(out, "%x\n", opcode[opIndex].code);
+                fprintf(out, "%s\n", operand);
+                
+				index ++;
+				
+				clear(label, 50);
+                clear(instruction, 50);
+                clear(operand, 50);
+                
+                // Read next line
+                fgets(line, sizeof(line), in);
+                
+                // Split read line
+                sscanf(line,"%s %s %s %*s", label, instruction, operand);
+                parameterFix(label, instruction, operand);               
+                
+	        } // end while not END
+	        
+	        
+        }// end Pass 1
 
-                        parameterFix(p1, p2, p3);
-
-                        printf("label: %s\n", p1);
-                        printf("instruction: %s\n", p2);
-                        printf("operand: %s\n", p3);
-
-                        clear(p1, 50);
-                        clear(p2, 50);
-                        clear(p3, 50);
-	        }   
-        }
-
-	if ( (out = fopen (outName, "w")) == NULL )
-	{
-		printf("Can't open %s for writing.\n", outName);
-		//return 2;
-	}
-
-	// copy in to out
-
-	//while( (c = getc (in)) != EOF )
-	//	putc (c, out);
-
-	// Close open files
 	fclose(in);
 	fclose(out);
 
@@ -404,7 +490,7 @@ void parameterFix(char p1[], char p2[], char p3[])
 
         // Check to see if label is a mnemonic
         for( i = 0; i < 30; i++)
-                if(strcmp(p1, opcodeTable[i].name) == 0)
+                if(strcmp(p1, opcode[i].name) == 0)
                 {       
                         found = 1;
                         break;
@@ -426,6 +512,58 @@ void parameterFix(char p1[], char p2[], char p3[])
 
 }
 
+_Bool symtabSearch(char key[], Symtab symtab[])
+{
+        // Sort the Symbol table
+        Symtab temp;
+        int k;
+        int i;
+        for ( i = 0; i < 499; i++)
+        {
+                temp = symtab[i];
+                k = i - 1;
+                while ( k >= 0 && strcmp(temp.name, symtab[k].name) < 0) {
+                symtab[k + 1] = symtab[k];
+                k -= 1;
+                }
+        }
+        symtab [k + 1] = temp;
 
+        int min = 0;
+        int max = 498;
+        
+        while ( min <= max)
+        {
+                
+                int mid = (min + max) /2;
+                if ( strcmp(symtab[mid].name, key) == 0) return 1;
+                else if (strcmp(symtab[mid].name, key) < 0) min = mid + 1;
+                else max = mid -1;
+                
+        }
+
+       return 0;      
+}
+
+_Bool optabSearch(char key[], int  *n)
+{
+        int min = 0;
+        int max = 24;
+        
+        while ( min <= max)
+        {
+                
+                int mid = (min + max) /2;
+                if ( strcmp(opcode[mid].name, key) == 0){
+					 *n = mid;
+					 return 1;
+				 }
+                else if (strcmp(opcode[mid].name, key) < 0) min = mid + 1;
+                else max = mid -1;
+                
+        }
+
+       return 0;
+}
 
 #endif
