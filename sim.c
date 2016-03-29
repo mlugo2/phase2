@@ -1,7 +1,7 @@
 /********************************************************
 *  Marco Lugo                                           *
 *  20291903                                             *
-*  2/24/2015                                            *
+*  3/30/2015                                            *
 *                                                       *
 *  This program is a simulation of a command line       *
 *  interpreter. For phase 1 only the commands:          *
@@ -14,25 +14,30 @@
 #include <stdlib.h>
 #include "functions.h"
 
-
 int main()
 {
-        // char arrays for input, command, and parameters
+     // char arrays for input, command, and parameters
 	char line[80], comm[20], p1[10], p2[10], extra[20];
 
-        // Display welcome message
-        welcomeMessage();
+    // Display welcome message
+    welcomeMessage();
 
 	do{
-                // These functions clear command and parameters
-                clear(comm, 20);
-                clear(p1, 10);
-                clear(p2, 10);
+        // These functions clear command and parameters
+        clear(comm, 20);
+        clear(p1, 10);
+        clear(p2, 10);
 		clear(extra,20);
 
 		// Promnt user for command line
 		printf("~command>: ");
 		s_gets(line, 80);
+		
+		while ( line[0] == '\0' )
+		{
+			printf("~command>: ");
+			s_gets(line, 80);
+		}
 
 		// Split up the line into the command and parameters
 		split(line, comm, p1, p2, extra);
@@ -41,8 +46,8 @@ int main()
 		if (extra[0] != '\0')
 			printf("Error: Too many parameters.\n");
 		else
-                	// This function authenticates commands and parameters
-                	authenticator(comm, p1, p2);
+			// This function authenticates commands and parameters
+            authenticator(comm, p1, p2);
 
 
 	}while(!strcmp(comm,"exit") == 0 || p1[0] != '\0');
