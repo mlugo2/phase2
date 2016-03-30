@@ -1,13 +1,14 @@
-/********************************************************
-*  Marco Lugo                                           *
-*  20291903                                             *
-*  3/30/2015                                            *
-*                                                       *
-*  This program is a simulation of a command line       *
-*  interpreter. For phase 1 only the commands:          *
-*  help, directory, and exit are implemented but        *
-*  all commands are recognized.                         *
-********************************************************/
+/****************************************************************
+*  Marco Lugo                                           		*
+*  20291903                                             		*
+*  3/30/2015                                            		*
+*                                                       		*
+*	This program is the second phase to write pass one of a		*
+*   two-pass assembler for the SIC assembler. Pass one will		*
+* 	read each line of the source file and this pass will		*
+* 	create the symbol table. The intermediate file will be		*
+* 	created for pass two.										*
+****************************************************************/
 
 #include <stdio.h>
 #include <string.h>
@@ -29,10 +30,11 @@ int main()
         clear(p2, 10);
 		clear(extra,20);
 
-		// Promnt user for command line
+		// Prompt user for command line
 		printf("~command>: ");
 		s_gets(line, 80);
 		
+		// Blank lines prompts for user input
 		while ( line[0] == '\0' )
 		{
 			printf("~command>: ");

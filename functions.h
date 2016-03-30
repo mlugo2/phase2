@@ -33,14 +33,17 @@ void clear(char[], int n);
 void authenticator(char [], char [], char []);
 void displayCommnads();
 void welcomeMessage();
+
+/* Directive functions */
+void assemble(char []);
+
+/* Directive dependencies */
 void parameterFix(char [], char [], char []);
 _Bool symtabSearch(char [], Symtab []);
 _Bool optabSearch(char [], int *, int );
 int errorChecker(char [], char [], char [], int);
 _Bool byteOperandCheck(char [], int *);
-
-/* Directive functions */
-void assemble(char []);
+_Bool hexCheck( char [] );
 
 
 /********************************************************
@@ -483,7 +486,7 @@ void assemble(char fileName [])
 								else if( strcmp(instruction, "WORD") == 0)
 								{
 									// Error checking blank operand
-									if ( operand[0] == '\0')
+									if ( operand[0] == '\0' || !hexCheck(operand))
 										error = error | 8;
 									
 									fprintf(out, "%x\n", locctr);
@@ -492,7 +495,7 @@ void assemble(char fileName [])
 								else if ( strcmp(instruction, "RESW") == 0)
 								{
 									// Error checking blank operand
-									if ( operand[0] == '\0')
+									if ( operand[0] == '\0'|| !hexCheck(operand))
 										error = error | 8;
 										
 									fprintf(out, "%x\n", locctr);
@@ -502,7 +505,7 @@ void assemble(char fileName [])
 								else if ( strcmp(instruction, "RESB") == 0)
 								{
 									// Error checking blank operand
-									if ( operand[0] == '\0')
+									if ( operand[0] == '\0'|| !hexCheck(operand))
 										error = error | 8;
 										
 									fprintf(out, "%x\n", locctr);
@@ -514,7 +517,6 @@ void assemble(char fileName [])
 										// Check operand for BYTE directive
 										if ( byteOperandCheck(operand, &locctr))
 										{
-												puts("Error occured\n");
 												error = error | 8;
 										}
 											
@@ -549,8 +551,9 @@ void assemble(char fileName [])
 									
                         } // end if not a comment
                 
-                // Read next line
-                fgets(line, sizeof(line), in);
+                // Read next line and check for end of file
+                if (fgets(line, sizeof(line), in) == NULL)
+					break;
                 
                 // Split read line
                 sscanf(line,"%s %s %s %*s", label, instruction, operand);
@@ -578,6 +581,7 @@ void assemble(char fileName [])
 					
 				error = errorChecker(label, instruction, operand, error);
 			
+				// Write lines to intermediate file
 				fprintf(out, "%x\n", locctr);
 				fprintf(out, "%x\n", opcode[opIndex].code);
 				fprintf(out, "%s\n", operand);
@@ -710,7 +714,7 @@ int errorChecker(char label[], char instruction[], char operand[], int error)
 	if ( isdigit(label[0]) )
 		error = error | 2;
 		
-	// Check for illegal operations (4)
+	// Check label and operands for reserved words(4)
 	if( optabSearch(label, &index, 3) || optabSearch(operand, &index, 3) )
 		error = error | 4;
 	
@@ -724,17 +728,8 @@ int errorChecker(char label[], char instruction[], char operand[], int error)
 		// Operand for START should be hex
 		// if hex should start with '0'
 		// if begin 'A' - 'Z'
-		if ( isalpha(operand[0]))
+		if ( !hexCheck(operand))
 			error = error | 16;
-		else if ( isdigit(operand[0]) )
-		{
-			int i;
-			for ( i = 1; i < operandLength; i++)
-			{
-				if (isalpha(operand[i]) && (operand[1] < 'A' || operand[1] > 'F'))
-					error = error | 16;				
-			}
-		}
 			
 		return error;	
 	}
@@ -748,19 +743,31 @@ int errorChecker(char label[], char instruction[], char operand[], int error)
 	else
 	{
 		// Check hex are 'A' - 'Z'	
-		if ( isdigit(operand[0]) && operandLength > 1)
-		{
-				int i;
-				for ( i = 1; i < operandLength; i++)
-				{
-					if (isalpha(operand[i]) && (operand[1] < 'A' || operand[1] > 'F'))
-						error = error | 4;				
-				}
-		}
+		if (!isalpha(operand[0]) && !hexCheck(operand) && operand[0] != '\0')
+			error = error | 4;
 		
 		return error;
 	}
 
 }
+
+_Bool hexCheck( char num[])
+{
+		int numLength = strlen(num);
+		if ( isdigit(num[0]) && numLength > 0)
+		{
+			int i;
+			for ( i = 1; i < numLength; i++)
+			{
+				if ( isalpha(num[i]) && ( num[i] < 'A' || num[i] > 'F'))
+					return 0;
+			}
+		}
+		else
+			return 0;
+			
+		return 1;
+}
+
 
 #endif
